@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>喵星人躲猫猫大作战 · 在线联机</title>
+<style>
+:root{--bg:#171923;--panel:rgba(24,27,38,.92);--gold:#ffbd66;--mint:#77e0a3;--text:#fff8ee}
+*{box-sizing:border-box}html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif}canvas{display:block;width:100%;height:100%;touch-action:none}
+#hud{position:absolute;inset:0;pointer-events:none}.top{display:flex;justify-content:space-between;gap:8px;padding:14px;flex-wrap:wrap}.pill{background:#171923c9;border:1px solid #ffffff28;border-radius:22px;padding:8px 13px;font-size:13px;backdrop-filter:blur(8px)}#status{position:absolute;top:66px;left:50%;transform:translateX(-50%);white-space:nowrap}
+.panel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:#090b11b8;z-index:5}.card{width:min(440px,100%);background:var(--panel);border:1px solid #ffffff22;border-radius:24px;padding:26px;box-shadow:0 24px 80px #0008;text-align:center}.card h1{font-size:clamp(26px,6vw,38px);margin:0 0 8px;color:var(--gold)}.sub{color:#c2c7d2;font-size:14px;line-height:1.65;margin:0 0 20px}.field{width:100%;padding:13px 15px;border-radius:12px;border:1px solid #ffffff2b;background:#10131d;color:white;font-size:16px;margin:6px 0;outline:none}.btn{border:0;border-radius:14px;background:var(--gold);color:#25202a;font-weight:800;font-size:16px;padding:13px 18px;cursor:pointer;margin:5px}.btn.secondary{background:#ffffff17;color:white;border:1px solid #ffffff2a}.btn:disabled{opacity:.45;cursor:not-allowed}.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}.hidden{display:none!important}#lobby-list{color:#d5d8e0;font-size:14px;line-height:1.8;margin:12px 0}#toast{position:absolute;left:50%;bottom:25%;transform:translateX(-50%);background:#111722e8;border:1px solid #ffffff22;padding:10px 16px;border-radius:18px;display:none;z-index:8;pointer-events:none}
+#controls{position:absolute;inset:0;pointer-events:none}#stick{position:absolute;left:24px;bottom:26px;width:124px;height:124px;border-radius:50%;background:#ffffff20;border:2px solid #ffffff55;pointer-events:auto;touch-action:none}#knob{position:absolute;left:36px;top:36px;width:48px;height:48px;border-radius:50%;background:#ffffffb8;box-shadow:0 2px 12px #0006;pointer-events:none}#actions{position:absolute;right:18px;bottom:24px;display:grid;grid-template-columns:repeat(2,70px);gap:9px;pointer-events:auto}#actions button{width:70px;height:58px;border-radius:18px;border:1px solid #ffffff66;background:#171923c9;color:white;font-weight:700;touch-action:none}#actions button.primary{border-color:var(--mint);background:#267c50bb}#help{position:absolute;right:16px;top:76px;color:#fff9;font-size:12px;text-align:right;pointer-events:none}
+@media(hover:hover) and (pointer:fine){#help:after{content:"WASD 移动 · 空格变身 · Q 挑衅"}} 
+</style>
+</head>
+<body><div id="app"><canvas id="game"></canvas>
+<div id="hud" class="hidden"><div class="top"><div class="pill" id="room-label">房间：----</div><div class="pill" id="score-label">存活玩家：0</div><div class="pill" id="timer">90s</div></div><div class="pill" id="status">寻找安全隐蔽处！</div><div id="help"></div></div>
+<div id="controls"><div id="stick"><div id="knob"></div></div><div id="actions"><button id="morph" class="primary">变身</button><button id="taunt">喵喵叫</button><button id="back">恢复小猫</button><button id="lock">锁定视角</button></div></div>
+<div id="toast"></div>
+<div id="home" class="panel"><div class="card"><h1>🐱 喵星人躲猫猫</h1><p class="sub">在线多人 3D 躲猫猫 · 最多 8 位玩家<br>变身成家具，躲避柴犬警长的追捕！</p><input id="name" class="field" maxlength="12" placeholder="输入你的猫咪昵称" value="小橘"><button id="create" class="btn" style="width:100%">创建房间</button><div style="color:#8d95a5;margin:8px">— 或加入朋友的房间 —</div><input id="code" class="field" maxlength="6" placeholder="输入 6 位邀请码" style="text-transform:uppercase"><button id="join" class="btn secondary" style="width:100%">加入房间</button><p class="sub" id="error" style="color:#ff8d8d;margin:12px 0 0"></p></div></div>
+<div id="lobby" class="panel hidden"><div class="card"><h1>🎮 等待玩家加入</h1><p class="sub">把下面的邀请码发给朋友</p><div id="invite" style="font-size:34px;letter-spacing:6px;color:var(--mint);font-weight:900"></div><button id="copy" class="btn secondary">复制房间邀请码</button><div id="lobby-list"></div><p class="sub">房主可以开始游戏。建议 2–8 人一起玩。</p><button id="start" class="btn" style="width:100%">开始游戏</button><button id="leave" class="btn secondary" style="width:100%">退出房间</button></div></div>
+<div id="end" class="panel hidden"><div class="card"><h1>本局结束</h1><p class="sub" id="end-text"></p><button id="again" class="btn" style="width:100%">再玩一局</button><button id="home-btn" class="btn secondary" style="width:100%">返回首页</button></div></div>
+</div>
+<script src="/socket.io/socket.io.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+const socket=io();let roomCode="",isHost=false,phase="home",myId=null,latest=null,moveX=0,moveZ=0,yaw=0,locked=false,lastSend=0,playerMeshes=new Map(),propMeshes={},dogMesh=null,playerRoot=null,clock=new THREE.Clock();
+const $=id=>document.getElementById(id), show=id=>$(id).classList.remove("hidden"), hide=id=>$(id).classList.add("hidden");
+const renderer=new THREE.WebGLRenderer({canvas:$("game"),antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x222632);scene.fog=new THREE.Fog(0x222632,17,35);
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,100);camera.position.set(0,8,10);
+scene.add(new THREE.HemisphereLight(0xffffff,0x777080,1.7));const sun=new THREE.DirectionalLight(0xffe8c9,2);sun.position.set(-5,12,7);scene.add(sun);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(30,30),new THREE.MeshStandardMaterial({color:0x777b83,roughness:.95}));floor.rotation.x=-Math.PI/2;floor.position.y=-.05;scene.add(floor);
+const grid=new THREE.GridHelper(30,30,0x555d69,0x555d69);grid.position.y=.005;scene.add(grid);
+function mat(c){return new THREE.MeshStandardMaterial({color:c,roughness:.8})}
+function box(w,h,d,c){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c));m.position.y=h/2;return m}
+function makeCat(color=0xffa34f){const g=new THREE.Group();const body=new THREE.Mesh(new THREE.SphereGeometry(.42,16,12),mat(color));body.scale.set(.8,1.1,1);body.position.y=.65;g.add(body);const head=new THREE.Mesh(new THREE.SphereGeometry(.34,16,12),mat(color));head.position.set(0,1.25,.05);g.add(head);for(const x of [-.2,.2]){const ear=new THREE.Mesh(new THREE.ConeGeometry(.12,.28,4),mat(color));ear.position.set(x,1.53,.05);g.add(ear);const eye=new THREE.Mesh(new THREE.SphereGeometry(.035,8,8),mat(0x24202a));eye.position.set(x*.7,1.28,.34);g.add(eye)}return g}
+function makeDog(){const g=new THREE.Group();const body=new THREE.Mesh(new THREE.BoxGeometry(.8,.65,1.15),mat(0xd99b55));body.position.y=.55;g.add(body);const head=new THREE.Mesh(new THREE.SphereGeometry(.42,14,12),mat(0xe9b66e));head.position.set(0,.95,.65);g.add(head);for(const x of [-.27,.27]){const ear=new THREE.Mesh(new THREE.ConeGeometry(.13,.38,5),mat(0x75482e));ear.position.set(x,1.25,.57);ear.rotation.z=x;g.add(ear)}const badge=new THREE.Mesh(new THREE.BoxGeometry(.22,.16,.04),mat(0x4b83d1));badge.position.set(0,.82,1.05);g.add(badge);return g}
+function makeProp(p){let g=new THREE.Group();if(p.id==="box"){g.add(box(1.2,1.1,1.2,p.color));const flap=box(.55,.035,1.22,0xd2a36e);flap.position.set(-.3,1.13,0);g.add(flap)}else if(p.id==="plant"){const pot=new THREE.Mesh(new THREE.CylinderGeometry(.35,.45,.55,12),mat(0xc77e58));pot.position.y=.28;g.add(pot);const leaves=new THREE.Mesh(new THREE.SphereGeometry(.62,12,10),mat(p.color));leaves.position.y=1;g.add(leaves)}else if(p.id==="toy"){const b=new THREE.Mesh(new THREE.SphereGeometry(.55,12,10),mat(p.color));b.position.y=.55;g.add(b)}else if(p.id==="barrel"){const b=new THREE.Mesh(new THREE.CylinderGeometry(.52,.52,1.25,16),mat(p.color));b.position.y=.63;g.add(b)}else if(p.id==="sofa"){g.add(box(2.4,.7,1.2,p.color));const back=box(2.4,.8,.25,p.color);back.position.set(0,1.05,-.48);g.add(back)}else{const pole=new THREE.Mesh(new THREE.CylinderGeometry(.05,.07,1.4,8),mat(0xdddddd));pole.position.y=.7;g.add(pole);const shade=new THREE.Mesh(new THREE.ConeGeometry(.4,.45,12),mat(p.color));shade.position.y=1.5;g.add(shade)}g.position.set(p.x,0,p.z);scene.add(g);return g}
+let props=[];
+function syncProps(list){if(!list)return;for(const p of list)if(!propMeshes[p.id])propMeshes[p.id]=makeProp(p)}
+function clearPlayers(){for(const m of playerMeshes.values())scene.remove(m);playerMeshes.clear();if(dogMesh)scene.remove(dogMesh);dogMesh=null}
+function playerModel(p){if(p.form==="cat")return makeCat(p.id===myId?0xffa34f:0x8bc8ef);const prop=props.find(x=>x.id===p.form);if(prop){const clone=propMeshes[p.form]?.clone()||box(1,1,1,prop.color);return clone}return makeCat()}
+function updateState(s){latest=s;phase=s.phase;syncProps(s.props);$("room-label").textContent="房间："+s.code;$("score-label").textContent="存活玩家："+s.players.filter(p=>p.alive).length+" / "+s.players.length;$("timer").textContent=Math.ceil(s.timeLeft)+"s";$("status").textContent=s.phase==="playing"?"躲起来！柴犬警长正在搜索":"等待开始";
+if(s.phase==="lobby"){show("lobby");hide("home");hide("end");$("invite").textContent=s.code;$("lobby-list").innerHTML=s.players.map(p=>(p.isHost?"👑 ":"🐾 ")+escapeHtml(p.name)).join("<br>");$("start").disabled=!isHost; $("start").textContent=isHost?"开始游戏":"等待房主开始"}
+if(s.phase==="playing"){hide("lobby");hide("home");hide("end");show("hud");show("controls");}
+for(const p of s.players){let m=playerMeshes.get(p.id);if(!m){m=playerModel(p);scene.add(m);playerMeshes.set(p.id,m)}m.position.set(p.x,0,p.z);m.rotation.y=p.yaw;if(m.userData.form!==p.form){scene.remove(m);m=playerModel(p);scene.add(m);playerMeshes.set(p.id,m);m.position.set(p.x,0,p.z);m.rotation.y=p.yaw;m.userData.form=p.form}m.visible=p.alive}
+for(const [id,m] of playerMeshes)if(!s.players.some(p=>p.id===id)){scene.remove(m);playerMeshes.delete(id)}
+if(!dogMesh){dogMesh=makeDog();scene.add(dogMesh)}dogMesh.position.set(s.dog.x,0,s.dog.z);dogMesh.rotation.y=s.dog.yaw;
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function toast(t){$("toast").textContent=t;$("toast").style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").style.display="none",1800)}
+function enter(result){if(!result.ok){$("error").textContent=result.error;return}roomCode=result.code;myId=socket.id;isHost=result.state.players.find(p=>p.id===myId)?.isHost;props=result.state.props;show("lobby");hide("home");show("hud");updateState(result.state)}
+$("create").onclick=()=>{ $("error").textContent="";socket.emit("createRoom",{name:$("name").value},enter)};
+$("join").onclick=()=>{ $("error").textContent="";socket.emit("joinRoom",{name:$("name").value,code:$("code").value},enter)};
+$("start").onclick=()=>socket.emit("startRound",{code:roomCode},r=>{if(!r?.ok)toast(r?.error||"无法开始")});
+$("copy").onclick=async()=>{try{await navigator.clipboard.writeText(roomCode);toast("邀请码已复制，发给朋友吧！")}catch(e){toast("房间邀请码："+roomCode)}};
+$("leave").onclick=()=>location.reload();
+$("again").onclick=()=>{hide("end");show("lobby")};
+$("home-btn").onclick=()=>location.reload();
+socket.on("state",s=>{if(s.code===roomCode){isHost=s.players.find(p=>p.id===myId)?.isHost||false;updateState(s)}});
+socket.on("caught",d=>toast(d.name+" 被柴犬警长抓到了！"));
+socket.on("notice",t=>toast(t));
+socket.on("roundEnd",d=>{hide("controls");show("end");$("end-text").textContent=d.winners.length?"存活玩家："+d.winners.join("、")+"，成功躲过搜查！":"所有小猫都被抓住啦！再来一局？";});
+function morph(form){socket.emit("morph",{code:roomCode,form})}
+$("morph").onclick=()=>{if(!latest)return;const forms=["box","plant","toy","barrel","sofa","lamp"];const current=latest.players.find(p=>p.id===myId)?.form;const idx=forms.indexOf(current);morph(forms[(idx+1)%forms.length])};
+$("back").onclick=()=>morph("cat");$("taunt").onclick=()=>socket.emit("taunt",{code:roomCode});
+$("lock").onclick=()=>{locked=!locked;$("lock").textContent=locked?"解锁视角":"锁定视角"};
+let keys={};window.addEventListener("keydown",e=>{keys[e.key.toLowerCase()]=true;if(e.key===" ")morph("box");if(e.key.toLowerCase()==="q")$("taunt").click()});window.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+const stick=$("stick"),knob=$("knob");let stickId=null;
+stick.addEventListener("pointerdown",e=>{stickId=e.pointerId;stick.setPointerCapture(stickId);setStick(e)});
+stick.addEventListener("pointermove",e=>{if(e.pointerId===stickId)setStick(e)});
+stick.addEventListener("pointerup",e=>{if(e.pointerId===stickId){stickId=null;moveX=moveZ=0;knob.style.transform="translate(0,0)"}});
+function setStick(e){const r=stick.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),len=Math.hypot(dx,dy),k=Math.min(1,48/Math.max(1,len));moveX=dx/48*k;moveZ=dy/48*k;knob.style.transform=`translate(${moveX*42}px,${moveZ*42}px)`}
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);if(phase==="playing"&&latest){const forward=(keys.w||keys.arrowup?1:0)-(keys.s||keys.arrowdown?1:0)-moveZ;const side=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0)+moveX;const len=Math.hypot(forward,side);if(len>.05){const vx=side/Math.max(1,len),vz=forward/Math.max(1,len);const me=latest.players.find(p=>p.id===myId);if(me?.alive){const nx=Math.max(-12,Math.min(12,me.x+vx*4*dt)),nz=Math.max(-12,Math.min(12,me.z+vz*4*dt));yaw=Math.atan2(vx,vz);if(Date.now()-lastSend>50){socket.emit("move",{code:roomCode,x:nx,z:nz,yaw});lastSend=Date.now()}}}}
+const me=latest?.players.find(p=>p.id===myId);if(me){const target=new THREE.Vector3(me.x+Math.sin(yaw)*7,7,me.z+Math.cos(yaw)*7);if(!locked)camera.position.lerp(target,.08);camera.lookAt(me.x,0,me.z)}
+renderer.render(scene,camera)}
+animate();
+window.addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+})();
+</script></body></html>
